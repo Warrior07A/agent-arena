@@ -3,12 +3,8 @@
 import type { ConnectionStatus, GameSnapshot } from "@repo/types";
 import { useEffect, useRef, useState } from "react";
 import { useSetAtom } from "jotai";
-import { spectatingAgentAtom } from "@/lib/store";
-import {
-  advanceCamera,
-  drawFrame,
-  pickCameraTarget,
-} from "../lib/renderer";
+import { spectatingAgentAtom, gameSnapshotAtom } from "@/lib/store";
+import { advanceCamera, drawFrame, pickCameraTarget } from "../lib/renderer";
 
 const MAX_DEVICE_PIXEL_RATIO = 1.5;
 
@@ -18,6 +14,7 @@ export function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const spectatorRef = useRef<string | null>(null);
   const setSpectatingAgent = useSetAtom(spectatingAgentAtom);
+  const setGameSnapshot = useSetAtom(gameSnapshotAtom);
   const snapshotRef = useRef<GameSnapshot | null>(null);
   const [, setConnectionStatus] = useState<ConnectionStatus>("connecting");
 
@@ -28,6 +25,9 @@ export function Game() {
 
     const tile = new Image();
     tile.src = "/images/tile.png";
+
+    const circle = new Image();
+    circle.src = "/images/circle.png";
 
     const shadow = new Image();
     shadow.src = "/images/white-shadow.png";
@@ -77,6 +77,7 @@ export function Game() {
         snapshot,
         camera,
         tile,
+        circle,
         shadow,
         eyeWhite,
         eyeBlack
@@ -96,6 +97,7 @@ export function Game() {
       try {
         const game = JSON.parse(event.data) as GameSnapshot;
         snapshotRef.current = game;
+        setGameSnapshot(game);
         animationFrame = window.requestAnimationFrame(() => renderLatest(game));
       } catch {
         return;

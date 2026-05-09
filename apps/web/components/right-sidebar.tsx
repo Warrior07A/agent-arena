@@ -1,48 +1,51 @@
 "use client";
 
 import { useAtomValue } from "jotai";
-import { selectedGameAtom } from "@/lib/store";
+import { gameSnapshotAtom } from "@/lib/store";
 import { useTheme } from "next-themes";
-import { MOCK_LEADERBOARD } from "@/lib/mock-data";
+import { MOCK_GAMES, MOCK_LEADERBOARD } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Activity, Trophy, Info } from "lucide-react";
 
 export function RightSidebarContent() {
-  const selectedGame = useAtomValue(selectedGameAtom);
+  const snapshot = useAtomValue(gameSnapshotAtom);
+  
+  // Use the first game as the active game for static data (like title, pool)
+  const activeGame = MOCK_GAMES[0];
+
+  const liveSnakes = snapshot ? snapshot.snakes : null;
 
   return (
     <div className="flex flex-col h-full gap-4 p-4 overflow-hidden">
-      {/* Match Info Card */}
-      {selectedGame ? (
+      {activeGame ? (
         <Card className="shrink-0 bg-slate-100 dark:bg-black/40 border-[#8B5CF6]/30 backdrop-blur-md shadow-[0_0_20px_rgba(139,92,246,0.1)]">
           <CardHeader className="pb-3 border-b border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5">
             <div className="flex items-center justify-between">
               <CardTitle className="font-sans font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <Info className="size-4 text-[#8B5CF6]" />
-                {selectedGame.name}
+                {activeGame.name}
               </CardTitle>
               <Badge
                 variant="outline"
                 className={`font-mono text-[9px] font-bold ${
-                  selectedGame.status === "LIVE"
+                  activeGame.status === "LIVE"
                     ? "border-green-500/50 bg-green-500/10 text-green-400"
-                    : selectedGame.status === "UPCOMING"
+                    : activeGame.status === "UPCOMING"
                       ? "border-[#F59E0B]/50 bg-[#F59E0B]/10 text-[#F59E0B]"
                       : "border-gray-700 text-slate-400 dark:text-gray-500"
                 }`}
               >
-                {selectedGame.status === "LIVE" && <span className="mr-1.5 size-1.5 rounded-full bg-green-500 animate-pulse" />}
-                {selectedGame.status.toUpperCase()}
+                {activeGame.status === "LIVE" && <span className="mr-1.5 size-1.5 rounded-full bg-green-500 animate-pulse" />}
+                {activeGame.status.toUpperCase()}
               </Badge>
             </div>
             <div className="mt-1 flex items-center gap-3 font-mono text-[10px] font-bold text-slate-500 dark:text-gray-400 tabular-nums">
-              <span>ROUND {selectedGame.id}</span>
+              <span>ROUND {activeGame.id}</span>
               <span>·</span>
-              <span className="text-[#8B5CF6]">{selectedGame.totalPool.toFixed(1)} SOL POOL</span>
+              <span className="text-[#8B5CF6]">{activeGame.totalPool.toFixed(1)} SOL POOL</span>
             </div>
           </CardHeader>
           <CardContent className="p-3">
@@ -50,18 +53,14 @@ export function RightSidebarContent() {
               AGENT STATUS
             </span>
             <div className="mt-2 flex flex-col gap-3">
-              {selectedGame?.agents
+              {(liveSnakes || activeGame?.agents || [])
                 .slice()
                 .sort((a, b) => b.score - a.score)
                 .map((agent) => {
-                  const maxScore = Math.max(
-                    ...selectedGame.agents.map((a) => a.score),
-                    1
-                  );
+                  const agentsArr = liveSnakes || activeGame.agents;
+                  const maxScore = Math.max(...agentsArr.map((a) => a.score), 1);
                   const segments = 12;
-                  const filled = Math.round(
-                    (agent.score / maxScore) * segments
-                  );
+                  const filled = Math.round((agent.score / maxScore) * segments);
                   return (
                     <div key={agent.id} className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
@@ -73,7 +72,7 @@ export function RightSidebarContent() {
                           <span className={`font-mono text-[10px] ${agent.alive ? 'text-slate-700 dark:text-gray-200' : 'text-slate-400 dark:text-gray-600 line-through'}`}>
                             {agent.name}
                           </span>
-                          {selectedGame.winnerAgentId === agent.id && (
+                          {activeGame.winnerAgentId === agent.id && (
                             <span className="text-[9px] text-[#F59E0B] font-bold">★ WINNER</span>
                           )}
                         </div>

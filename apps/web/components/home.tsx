@@ -1,12 +1,8 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { Provider, useAtomValue } from "jotai";
-import { selectedGameAtom } from "@/lib/store";
-// import { Game } from "@/components/game";
+import { Provider } from "jotai";
+import { Game } from "@/components/game";
 import { Navbar } from "@/components/navbar";
-// import { GameOverlay } from "@/components/game-overlay";
-import { LeftSidebar, LeftSidebarContent } from "@/components/left-sidebar";
+import { GameOverlay } from "@/components/game-overlay";
+import { LeftSidebar, LeftSidebarContent, LeftSidebarToggle } from "@/components/left-sidebar";
 import { RightSidebar, RightSidebarContent } from "@/components/right-sidebar";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { motion } from "framer-motion";
@@ -131,42 +127,18 @@ export function Home() {
           
           {/* Main Content Area */}
           <main className="relative min-w-0 flex-1 bg-transparent flex flex-col w-full h-full z-0">
-            {/* Absolute Toggle Button anchored relative to main content area to avoid overlapping sidebar */}
-            <button 
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              className="absolute top-6 left-6 z-50 p-2.5 bg-slate-50/80 dark:bg-black/80 border border-slate-300 dark:border-white/10 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-200 dark:bg-white/10 hover:border-[#8B5CF6]/50 backdrop-blur-xl transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] group"
-            >
-              {isLeftSidebarOpen ? (
-                <PanelLeftClose className="size-6 text-slate-500 dark:text-gray-400 group-hover:text-slate-900 dark:hover:text-slate-900 dark:text-white transition-colors" />
-              ) : (
-                <PanelLeftOpen className="size-6 text-slate-500 dark:text-gray-400 group-hover:text-slate-900 dark:hover:text-slate-900 dark:text-white transition-colors" />
-              )}
-            </button>
-
-            {isLive ? (
-              <>
-                {/* <Game />
-                <GameOverlay game={selectedGame} /> */}
-              </>
-            ) : (
-              <BattleTerminal />
-            )}
+            <LeftSidebarToggle />
+            <Game />
+            <GameOverlay />
           </main>
           
           <RightSidebar />
         </div>
 
-        {/* Mobile View */}
-        <div className="flex min-h-0 flex-1 flex-col lg:hidden w-full h-full bg-white dark:bg-[#04050A]">
+        <div className="flex min-h-0 flex-1 flex-col lg:hidden w-full h-full bg-[#04050A]">
           <div className="relative aspect-video w-full border-b border-[#3B82F6]/30">
-            {isLive ? (
-              <>
-                {/* <Game />
-                <GameOverlay game={selectedGame} /> */}
-              </>
-            ) : (
-              <BattleTerminal />
-            )}
+            <Game />
+            <GameOverlay />
           </div>
 
           <div className="flex border-b border-slate-300 dark:border-white/10 bg-white dark:bg-[#04050A]/90 backdrop-blur-xl px-2 pt-2">

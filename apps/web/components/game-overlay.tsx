@@ -1,13 +1,13 @@
 "use client";
 
 import { useAtom, useAtomValue } from "jotai";
-import { selectedGameAtom, spectatingAgentAtom } from "@/lib/store";
+import { gameSnapshotAtom, spectatingAgentAtom } from "@/lib/store";
 
 export function GameOverlay() {
-  const snapshot = useAtomValue(selectedGameAtom)
+  const snapshot = useAtomValue(gameSnapshotAtom)
   const [spectatingAgent, setSpectatingAgent] = useAtom(spectatingAgentAtom);
-  const aliveAgents = snapshot?.agents.filter((s) => s.alive);
-  const currentSnake = snapshot?.agents.find((s) => s.id === spectatingAgent);
+  const aliveAgents = snapshot?.snakes.filter((s) => s.alive);
+  const currentSnake = snapshot?.snakes.find((s) => s.id === spectatingAgent);
 
   return (
     <>

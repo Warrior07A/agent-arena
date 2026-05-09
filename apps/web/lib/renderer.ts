@@ -47,6 +47,10 @@ function drawBackground(
   ctx.fillRect(x, y, w, h);
 }
 
+function imageReady(image: HTMLImageElement): boolean {
+  return image.complete && image.naturalWidth > 0;
+}
+
 function drawFood(ctx: CanvasRenderingContext2D, food: Food[], view: Bbox) {
   const sides = 6;
   const angle = (Math.PI * 2) / sides;
@@ -72,6 +76,8 @@ function drawShadows(
   shadow: HTMLImageElement,
   view: Bbox
 ) {
+  if (!imageReady(shadow)) return;
+
   const scale = snake.size / SPRITE_SIZE;
   const drawSize = SHADOW_SIZE * scale;
   const half = drawSize / 2;
@@ -95,19 +101,32 @@ function drawShadows(
 function drawSnakeBody(
   ctx: CanvasRenderingContext2D,
   snake: Snake,
+  circle: HTMLImageElement,
   view: Bbox
 ) {
   const half = snake.size / 2;
+
   for (let i = snake.body.length - 1; i >= 0; i--) {
     const section = snake.body[i]!;
     if (!inBbox(section, half, view)) continue;
-    ctx.beginPath();
-    ctx.arc(section.x, section.y, half, 0, Math.PI * 2);
-    ctx.fillStyle = snake.color;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = snake.accent;
-    ctx.stroke();
+
+    if (imageReady(circle)) {
+      ctx.drawImage(
+        circle,
+        section.x - half,
+        section.y - half,
+        snake.size,
+        snake.size
+      );
+    } else {
+      ctx.beginPath();
+      ctx.arc(section.x, section.y, half, 0, Math.PI * 2);
+      ctx.fillStyle = snake.color;
+      ctx.fill();
+      ctx.lineWidth = Math.max(1.3, snake.size * 0.036);
+      ctx.strokeStyle = snake.accent;
+      ctx.stroke();
+    }
   }
 }
 
@@ -127,6 +146,8 @@ function drawEyes(
   eyeWhite: HTMLImageElement,
   eyeBlack: HTMLImageElement
 ) {
+  if (!imageReady(eyeWhite) || !imageReady(eyeBlack)) return;
+
   const scale = snake.size / SPRITE_SIZE;
   const whiteSize = 28 * scale;
   const blackSize = 14 * scale;
@@ -200,6 +221,7 @@ export function drawFrame(
   snapshot: GameSnapshot,
   camera: Camera,
   tile: HTMLImageElement,
+  circle: HTMLImageElement,
   shadow: HTMLImageElement,
   eyeWhite: HTMLImageElement,
   eyeBlack: HTMLImageElement
@@ -230,7 +252,7 @@ export function drawFrame(
 
   for (const snake of snapshot.snakes) {
     if (!snake.alive) continue;
-    drawSnakeBody(ctx, snake, view);
+    drawSnakeBody(ctx, snake, circle, view);
     if (inBbox(snake.head, snake.size + 40, view)) {
       drawEyes(ctx, snake, eyeWhite, eyeBlack);
     }
