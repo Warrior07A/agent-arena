@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useAtom, useAtomValue } from "jotai";
-import { selectedGameAtom, betsAtom, leftSidebarOpenAtom } from "@/lib/store";
+import { useAtom } from "jotai";
+import { selectedGameAtom, betsAtom } from "@/lib/store";
 import { MOCK_GAMES } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Zap, Lock, ChevronRight, ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Zap, Lock, ChevronRight, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +45,7 @@ function statusBadge(status: Game["status"]) {
       return (
         <Badge
           variant="outline"
-          className="border-gray-700 font-mono text-[10px] text-gray-500 font-bold"
+          className="border-gray-700 font-mono text-[10px] text-slate-400 dark:text-gray-500 font-bold"
         >
           ENDED
         </Badge>
@@ -56,7 +56,7 @@ function statusBadge(status: Game["status"]) {
 function betStatusColor(status: Bet["status"]) {
   switch (status) {
     case "PENDING":
-      return "text-white";
+      return "text-slate-900 dark:text-white";
     case "WON":
       return "text-green-400";
     case "LOST":
@@ -83,24 +83,24 @@ function GamesList({
             key={game.id}
             type="button"
             onClick={() => onSelectGame(game)}
-            className="flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/40 px-3 py-3 text-left transition-all hover:border-[#8B5CF6]/40 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+            className="flex w-full items-center justify-between rounded-xl border border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-black/40 px-3 py-3 text-left transition-all hover:border-[#8B5CF6]/40 hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-white/5 hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
           >
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <span className="font-sans font-bold text-sm text-gray-200">
+                <span className="font-sans font-bold text-sm text-slate-700 dark:text-gray-200">
                   {game.name}
                 </span>
                 {hasBet && (
                   <span className="inline-block size-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
                 )}
               </div>
-              <span className="font-mono text-[10px] text-gray-500 tabular-nums">
+              <span className="font-mono text-[10px] text-slate-400 dark:text-gray-500 tabular-nums">
                 {game.totalPool.toFixed(1)} SOL · R{game.id}
               </span>
             </div>
             <div className="flex items-center gap-2">
               {statusBadge(game.status)}
-              <ChevronRight className="size-4 text-gray-600" />
+              <ChevronRight className="size-4 text-slate-400 dark:text-gray-600" />
             </div>
           </button>
         );
@@ -144,7 +144,7 @@ function GameDetail({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 text-gray-400 transition-colors hover:text-white"
+          className="flex items-center gap-2 text-slate-500 dark:text-gray-400 transition-colors hover:text-slate-900 dark:hover:text-slate-900 dark:text-white"
         >
           <ArrowLeft className="size-4" />
           <span className="font-mono text-[10px] font-bold tracking-widest uppercase">
@@ -153,36 +153,36 @@ function GameDetail({
         </button>
 
         <div className="flex items-center justify-between">
-          <span className="font-sans text-xl font-bold text-white tracking-tight">
+          <span className="font-sans text-xl font-bold text-slate-900 dark:text-white tracking-tight">
             {game.name}
           </span>
           {statusBadge(game.status)}
         </div>
 
-        <div className="flex items-center gap-4 bg-white/5 rounded-xl border border-white/5 p-3">
+        <div className="flex items-center gap-4 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 p-3">
           <div className="flex flex-col">
-            <span className="font-mono text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+            <span className="font-mono text-[10px] font-bold tracking-widest text-slate-400 dark:text-gray-500 uppercase">
               POOL
             </span>
             <span className="font-mono text-sm font-bold text-[#8B5CF6] tabular-nums drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]">
               {game.totalPool.toFixed(1)} SOL
             </span>
           </div>
-          <Separator orientation="vertical" className="h-8 bg-white/10" />
+          <Separator orientation="vertical" className="h-8 bg-slate-200 dark:bg-white/10" />
           <div className="flex flex-col">
-            <span className="font-mono text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+            <span className="font-mono text-[10px] font-bold tracking-widest text-slate-400 dark:text-gray-500 uppercase">
               ROUND
             </span>
-            <span className="font-mono text-sm text-gray-200 tabular-nums">
+            <span className="font-mono text-sm text-slate-700 dark:text-gray-200 tabular-nums">
               {game.id}
             </span>
           </div>
-          <Separator orientation="vertical" className="h-8 bg-white/10" />
+          <Separator orientation="vertical" className="h-8 bg-slate-200 dark:bg-white/10" />
           <div className="flex flex-col">
-            <span className="font-mono text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+            <span className="font-mono text-[10px] font-bold tracking-widest text-slate-400 dark:text-gray-500 uppercase">
               AGENTS
             </span>
-            <span className="font-mono text-sm text-gray-200 tabular-nums">
+            <span className="font-mono text-sm text-slate-700 dark:text-gray-200 tabular-nums">
               {game?.agents.length}
             </span>
           </div>
@@ -210,14 +210,14 @@ function GameDetail({
           <div className="rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-3 py-3 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
             <span className="font-mono text-[10px] tracking-widest text-[#F59E0B] uppercase">
               WINNER:{" "}
-              <span className="font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">
+              <span className="font-bold text-slate-900 dark:text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">
                 {game.winnerAgentId.toUpperCase()}
               </span>
             </span>
           </div>
         )}
 
-        <Separator className="bg-white/10 my-1" />
+        <Separator className="bg-slate-200 dark:bg-white/10 my-1" />
 
         <span className="font-mono text-[11px] font-bold tracking-widest text-[#8B5CF6] uppercase">
           {canBet ? "TAP AN AGENT TO BET" : "AGENTS"}
@@ -236,12 +236,13 @@ function GameDetail({
                   setSelectedAgent(isSelected ? null : a.id);
                   setBetAmount("");
                 }}
-                className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-all ${isSelected
+                className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-all ${
+                  isSelected
                     ? "border-[#3B82F6] bg-[#3B82F6]/10 shadow-[0_0_20px_rgba(59,130,246,0.15)]"
                     : isBetAgent
                       ? "border-green-500/30 bg-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"
-                      : "border-white/5 hover:border-white/20 bg-black/40"
-                  } ${!canBet ? "cursor-default" : ""}`}
+                      : "border-slate-200 dark:border-white/5 hover:border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-black/40"
+                } ${!canBet ? "cursor-default" : ""}`}
               >
                 <div className="flex items-center gap-3">
                   <span
@@ -249,10 +250,11 @@ function GameDetail({
                     style={{ backgroundColor: a.color, color: a.color }}
                   />
                   <span
-                    className={`font-sans font-bold text-sm ${a.alive
-                        ? "text-gray-200"
-                        : "text-gray-600 line-through"
-                      }`}
+                    className={`font-sans font-bold text-sm ${
+                      a.alive
+                        ? "text-slate-700 dark:text-gray-200"
+                        : "text-slate-400 dark:text-gray-600 line-through"
+                    }`}
                   >
                     {a.name}
                   </span>
@@ -274,7 +276,7 @@ function GameDetail({
                   )}
                 </div>
                 {game.status !== "UPCOMING" && (
-                  <span className="font-mono text-xs text-gray-500 tabular-nums">
+                  <span className="font-mono text-xs text-slate-400 dark:text-gray-500 tabular-nums">
                     {a.score}
                   </span>
                 )}
@@ -287,19 +289,19 @@ function GameDetail({
                     type="number"
                     placeholder="0.00"
                     autoFocus
-                    className="h-10 flex-1 border-white/10 bg-black/60 font-mono text-sm text-white placeholder:text-gray-600 focus-visible:ring-[#3B82F6]"
+                    className="h-10 flex-1 border-slate-300 dark:border-white/10 bg-white dark:bg-black/60 font-mono text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:text-gray-600 focus-visible:ring-[#3B82F6]"
                     value={betAmount}
                     onChange={(e) => setBetAmount(e.target.value)}
                     min="0"
                     step="0.01"
                   />
-                  <span className="font-mono text-[10px] text-gray-500">
+                  <span className="font-mono text-[10px] text-slate-400 dark:text-gray-500">
                     SOL
                   </span>
                   <Button
                     id={`confirm-bet-${a.id}`}
                     disabled={!betAmount || parseFloat(betAmount) <= 0}
-                    className="h-10 rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] px-6 font-mono text-xs font-bold tracking-widest text-white uppercase hover:opacity-90 disabled:opacity-30 border-0"
+                    className="h-10 rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] px-6 font-mono text-xs font-bold tracking-widest text-slate-900 dark:text-white uppercase hover:opacity-90 disabled:opacity-30 border-0"
                     onClick={() => setConfirmOpen(true)}
                   >
                     BET
@@ -312,36 +314,36 @@ function GameDetail({
       </div>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-sm border-white/10 bg-[#04050A] backdrop-blur-xl shadow-[0_0_50px_rgba(139,92,246,0.15)]">
+        <DialogContent className="max-w-sm border-slate-300 dark:border-white/10 bg-white dark:bg-[#04050A] backdrop-blur-xl shadow-[0_0_50px_rgba(139,92,246,0.15)]">
           <DialogHeader>
-            <DialogTitle className="font-sans font-black text-xl text-white uppercase tracking-tight">
+            <DialogTitle className="font-sans font-black text-xl text-slate-900 dark:text-white uppercase tracking-tight">
               Confirm Bet
             </DialogTitle>
-            <DialogDescription className="font-mono text-xs text-gray-400">
+            <DialogDescription className="font-mono text-xs text-slate-500 dark:text-gray-400">
               Placing bet on {agent?.name} in {game.name}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 pt-2">
             <div className="flex items-center justify-between py-2">
-              <span className="font-mono text-[11px] tracking-widest text-gray-500 uppercase">
+              <span className="font-mono text-[11px] tracking-widest text-slate-400 dark:text-gray-500 uppercase">
                 AGENT
               </span>
-              <span className="font-sans font-bold text-sm text-white">
+              <span className="font-sans font-bold text-sm text-slate-900 dark:text-white">
                 {agent?.name}
               </span>
             </div>
-            <Separator className="bg-white/10" />
+            <Separator className="bg-slate-200 dark:bg-white/10" />
             <div className="flex items-center justify-between py-2">
-              <span className="font-mono text-[11px] tracking-widest text-gray-500 uppercase">
+              <span className="font-mono text-[11px] tracking-widest text-slate-400 dark:text-gray-500 uppercase">
                 AMOUNT
               </span>
               <span className="font-mono text-lg font-bold text-[#8B5CF6] tabular-nums drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]">
                 {betAmount} SOL
               </span>
             </div>
-            <Separator className="bg-white/10" />
+            <Separator className="bg-slate-200 dark:bg-white/10" />
             <div className="flex items-center justify-between py-2">
-              <span className="font-mono text-[11px] tracking-widest text-gray-500 uppercase">
+              <span className="font-mono text-[11px] tracking-widest text-slate-400 dark:text-gray-500 uppercase">
                 PAYOUT
               </span>
               <span className="font-mono text-[10px] text-[#3B82F6] font-bold">
@@ -351,13 +353,13 @@ function GameDetail({
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
-                className="flex-1 rounded-xl border-white/10 bg-transparent font-mono text-xs font-bold tracking-widest text-gray-400 uppercase hover:bg-white/5 hover:text-white"
+                className="flex-1 rounded-xl border-slate-300 dark:border-white/10 bg-transparent font-mono text-xs font-bold tracking-widest text-slate-500 dark:text-gray-400 uppercase hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-white/5 hover:text-slate-900 dark:hover:text-slate-900 dark:text-white"
                 onClick={() => setConfirmOpen(false)}
               >
                 CANCEL
               </Button>
               <Button
-                className="flex-1 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] font-mono text-xs font-bold tracking-widest text-white uppercase hover:opacity-90 border-0"
+                className="flex-1 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] font-mono text-xs font-bold tracking-widest text-slate-900 dark:text-white uppercase hover:opacity-90 border-0"
                 onClick={handleConfirmBet}
               >
                 CONFIRM
@@ -379,10 +381,10 @@ function MyBetsView({ bets }: { bets: Bet[] }) {
 
       {bets.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="font-mono text-sm text-gray-400">
+          <p className="font-mono text-sm text-slate-500 dark:text-gray-400">
             [NO BETS PLACED]
           </p>
-          <p className="mt-2 font-mono text-[10px] text-gray-600">
+          <p className="mt-2 font-mono text-[10px] text-slate-400 dark:text-gray-600">
             Select a game and pick an agent to bet
           </p>
         </div>
@@ -392,18 +394,18 @@ function MyBetsView({ bets }: { bets: Bet[] }) {
             {bets.map((bet) => (
               <div
                 key={bet.id}
-                className="flex items-center justify-between border border-white/5 bg-black/40 rounded-xl p-3"
+                className="flex items-center justify-between border border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-black/40 rounded-xl p-3"
               >
                 <div className="flex flex-col gap-1">
-                  <span className="font-sans font-bold text-sm text-gray-200">
+                  <span className="font-sans font-bold text-sm text-slate-700 dark:text-gray-200">
                     {bet.agentId.toUpperCase()}
                   </span>
-                  <span className="font-mono text-[10px] tracking-widest text-gray-500 uppercase">
+                  <span className="font-mono text-[10px] tracking-widest text-slate-400 dark:text-gray-500 uppercase">
                     {bet.gameId}
                   </span>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className="font-mono text-sm font-bold text-white tabular-nums">
+                  <span className="font-mono text-sm font-bold text-slate-900 dark:text-white tabular-nums">
                     {bet.amount.toFixed(2)} SOL
                   </span>
                   <div className="flex items-center gap-2">
@@ -429,18 +431,18 @@ function MyBetsView({ bets }: { bets: Bet[] }) {
             ))}
           </div>
 
-          <Separator className="my-6 bg-white/10" />
-          <div className="flex flex-col gap-3 rounded-xl border border-white/5 bg-black/60 p-4">
+          <Separator className="my-6 bg-slate-200 dark:bg-white/10" />
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-black/60 p-4">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+              <span className="font-mono text-[10px] font-bold tracking-widest text-slate-400 dark:text-gray-500 uppercase">
                 TOTAL WAGERED
               </span>
-              <span className="font-mono text-xs text-gray-300 tabular-nums">
+              <span className="font-mono text-xs text-slate-600 dark:text-gray-300 tabular-nums">
                 {bets.reduce((s, b) => s + b.amount, 0).toFixed(2)} SOL
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+              <span className="font-mono text-[10px] font-bold tracking-widest text-slate-400 dark:text-gray-500 uppercase">
                 NET P&L
               </span>
               {(() => {
@@ -519,23 +521,22 @@ export function LeftSidebarContent({ tab }: { tab: "games" | "bets" }) {
   );
 }
 
-export function LeftSidebar() {
-  const isSidebarOpen = useAtomValue(leftSidebarOpenAtom);
+export function LeftSidebar({ isCollapsed, onToggle }: { isCollapsed?: boolean, onToggle?: () => void }) {
   return (
-    <div className={`relative h-full transition-all duration-300 ease-in-out ${!isSidebarOpen ? "w-0 overflow-hidden" : "w-72"}`}>
-      <aside className="flex h-full w-72 flex-col border-r border-[#8B5CF6]/30 bg-[#04050A]/90 backdrop-blur-xl shadow-[5px_0_30px_rgba(139,92,246,0.1)]">
-        <div className="flex border-b border-white/10 pt-2 px-2 bg-black/20">
+    <div className={`relative h-full transition-all duration-300 ease-in-out ${isCollapsed ? "w-0 overflow-hidden" : "w-72"}`}>
+      <aside className="flex h-full w-72 flex-col border-r border-[#8B5CF6]/30 bg-white dark:bg-[#04050A]/90 backdrop-blur-xl shadow-[5px_0_30px_rgba(139,92,246,0.1)]">
+        <div className="flex border-b border-slate-300 dark:border-white/10 pt-2 px-2 bg-slate-50 dark:bg-black/20">
           <Tabs defaultValue="games" className="w-full">
             <TabsList className="w-full bg-transparent p-0 gap-4 h-10 border-b-0 rounded-none justify-start">
-              <TabsTrigger
-                value="games"
-                className="px-2 pb-2 rounded-none font-mono text-[11px] font-bold tracking-widest uppercase data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-[#8B5CF6] text-gray-500 hover:text-gray-300"
+              <TabsTrigger 
+                value="games" 
+                className="px-2 pb-2 rounded-none font-mono text-[11px] font-bold tracking-widest uppercase data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#8B5CF6] data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#8B5CF6] text-slate-500 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-gray-300"
               >
                 GAMES
               </TabsTrigger>
-              <TabsTrigger
-                value="bets"
-                className="px-2 pb-2 rounded-none font-mono text-[11px] font-bold tracking-widest uppercase data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-[#8B5CF6] text-gray-500 hover:text-gray-300"
+              <TabsTrigger 
+                value="bets" 
+                className="px-2 pb-2 rounded-none font-mono text-[11px] font-bold tracking-widest uppercase data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#8B5CF6] data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#8B5CF6] text-slate-500 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-gray-300"
               >
                 MY BETS
               </TabsTrigger>
@@ -551,35 +552,18 @@ export function LeftSidebar() {
           </Tabs>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between border-t border-white/10 px-4 py-3 bg-black/40 backdrop-blur-md">
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between border-t border-slate-300 dark:border-white/10 px-4 py-3 bg-slate-100 dark:bg-black/40 backdrop-blur-md">
           <div className="flex items-center gap-2">
             <Zap className="size-3 text-[#3B82F6] animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
             <span className="font-mono text-[10px] font-bold tracking-widest text-[#3B82F6] uppercase drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">
               SOLANA MAINNET
             </span>
           </div>
-          <span className="font-mono text-[10px] text-gray-500">
+          <span className="font-mono text-[10px] text-slate-400 dark:text-gray-500">
             v1.0.0
           </span>
         </div>
       </aside>
     </div>
   );
-}
-
-export function LeftSidebarToggle() {
-  const [isSidebarOpen,setIsSidebarOpen] = useAtom(leftSidebarOpenAtom)
-  
-  return (
-    <button
-      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-      className="absolute top-6 left-6 z-50 p-2.5 bg-black/80 border border-white/10 rounded-xl hover:bg-white/10 hover:border-[#8B5CF6]/50 backdrop-blur-xl transition-all shadow-[0_0_20px_rgba(139,92,246,0.2)] group"
-    >
-      {isSidebarOpen ? (
-        <PanelLeftClose className="size-6 text-gray-400 group-hover:text-white transition-colors" />
-      ) : (
-        <PanelLeftOpen className="size-6 text-gray-400 group-hover:text-white transition-colors" />
-      )}
-    </button>
-  )
 }
