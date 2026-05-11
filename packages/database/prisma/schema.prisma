@@ -37,29 +37,23 @@ model Agent {
 
 enum GameStatus {
   UPCOMING
-  OPEN // betting window live
-  LOCKED // betting closed, game about to start
   LIVE // match running
   ENDED // settled
   CANCELLED // all bets refunded
 }
 
 model Game {
-  id     String     @id @default(uuid())
+  id     Int     @id @default(autoincrement())
   name   String
   status GameStatus @default(UPCOMING)
 
-  bettingOpensAt  DateTime?
-  bettingClosesAt DateTime?
-  startedAt       DateTime?
-  endedAt         DateTime?
+  startedAt DateTime?
+  endedAt   DateTime?
 
-  totalPool     Int     @default(0)
+  totalPool     BigInt  @default(0)
+  feeAmount     BigInt?
   winnerAgentId String?
   winner        Agent?  @relation("GameWinner", fields: [winnerAgentId], references: [id])
-
-  escrowPublicKey    String?
-  escrowEncryptedKey String?
 
   agents AgentGame[]
   bets   Bet[]
@@ -74,7 +68,7 @@ model AgentGame {
   agentId String
   agent   Agent  @relation(fields: [agentId], references: [id])
 
-  gameId String
+  gameId Int
   game   Game   @relation(fields: [gameId], references: [id])
 
   @@id([agentId, gameId])
@@ -95,12 +89,12 @@ model Bet {
 
   agentId String
   agent   Agent  @relation(fields: [agentId], references: [id])
-  gameId  String
+  gameId  Int
   game    Game   @relation(fields: [gameId], references: [id])
 
   walletAddress String
-  amount        Int
-  payout        Int?
+  amount        BigInt
+  payout        BigInt?
 
   status    BetStatus @default(PENDING)
   placedAt  DateTime  @default(now())
@@ -126,12 +120,12 @@ model User {
 
   walletAddress String?
 
-  totalBetsPlaced Int @default(0)
-  totalBetsWon    Int @default(0)
-  totalBetsLost   Int @default(0)
-  totalWagered    Int @default(0)
-  totalPayout     Int @default(0)
-  netEarnings     Int @default(0)
+  totalBetsPlaced Int    @default(0)
+  totalBetsWon    Int    @default(0)
+  totalBetsLost   Int    @default(0)
+  totalWagered    BigInt @default(0)
+  totalPayout     BigInt @default(0)
+  netEarnings     BigInt @default(0)
 
   bets Bet[]
 

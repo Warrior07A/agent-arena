@@ -24,9 +24,9 @@ export async function GET() {
     totalBetsPlaced: user.totalBetsPlaced,
     totalBetsWon: user.totalBetsWon,
     totalBetsLost: user.totalBetsLost,
-    totalWagered: user.totalWagered / 1e6,
-    totalPayout: user.totalPayout / 1e6,
-    netEarnings: user.netEarnings / 1e6,
+    totalWagered: Number(user.totalWagered) / 1e6,
+    totalPayout: Number(user.totalPayout) / 1e6,
+    netEarnings: Number(user.netEarnings) / 1e6,
   }));
 
   return NextResponse.json({ leaderboard });

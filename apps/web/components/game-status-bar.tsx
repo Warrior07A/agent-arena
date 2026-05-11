@@ -12,7 +12,7 @@ export function GameStatusBar() {
         <span className="text-label text-muted-foreground">
           ROUND{" "}
           <span className="text-foreground">
-            #{gameMetadata?.id.slice(0, 6).toUpperCase() || "---"}
+            #{gameMetadata?.id || "---"}
           </span>
         </span>
         <span className="text-label text-muted-foreground">

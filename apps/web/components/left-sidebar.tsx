@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAtom } from "jotai";
-import { leftSidebarOpenAtom } from "@/lib/store";
+import { useAtom, useAtomValue } from "jotai";
+import { leftSidebarOpenAtom, gameMetadataAtom, gameSnapshotAtom } from "@/lib/store";
 import {
   useGames,
   useBets,
@@ -10,6 +10,7 @@ import {
   requestBetSwap,
   confirmBet,
 } from "@/lib/swr";
+import type { GameWithAgents } from "@/lib/swr-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -18,20 +19,18 @@ import {
   ArrowLeft,
   PanelLeftClose,
   PanelLeftOpen,
-  Lock,
   Loader2,
   Target,
   Wallet,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import type { Game, Agent, Bet } from "@repo/db";
+import type { Game, Agent } from "@repo/db";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
   Transaction,
   PublicKey,
   Connection,
-  SystemProgram,
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
@@ -41,7 +40,9 @@ import {
 } from "@solana/spl-token";
 import { USDC_MINT } from "@/lib/jupiter";
 
-type GameWithAgents = Game & { agents: Agent[] };
+const rpcUrl =
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
+  "https://api.devnet.solana.com";
 
 function StatusBadge({ status }: { status: Game["status"] }) {
   if (status === "LIVE") {
@@ -52,14 +53,8 @@ function StatusBadge({ status }: { status: Game["status"] }) {
       </span>
     );
   }
-  if (status === "OPEN") {
-    return <span className="text-label text-success">OPEN</span>;
-  }
   if (status === "UPCOMING") {
     return <span className="text-label text-muted-foreground">UPCOMING</span>;
-  }
-  if (status === "LOCKED") {
-    return <span className="text-label text-warning">LOCKED</span>;
   }
   if (status === "CANCELLED") {
     return <span className="text-label text-muted-foreground">CANCELLED</span>;
@@ -76,6 +71,10 @@ function GameRow({
   onClick: () => void;
   hasBet: boolean;
 }) {
+  const liveMetadata = useAtomValue(gameMetadataAtom);
+  const isLiveGame = liveMetadata?.id === game.id && liveMetadata.status === "LIVE";
+  const displayPool = isLiveGame ? liveMetadata.pool : game.totalPool;
+
   return (
     <button
       type="button"
@@ -93,9 +92,9 @@ function GameRow({
             )}
           </div>
           <div className="text-label flex items-center gap-2 text-muted-foreground">
-            <span>R{game.id.slice(0, 6).toUpperCase()}</span>
+            <span>R{game.id}</span>
             <span className="text-border">·</span>
-            <span>{game.totalPool.toFixed(1)} USDC</span>
+            <span>{displayPool.toFixed(1)} USDC</span>
           </div>
         </div>
         <div className="ml-3 flex shrink-0 items-center gap-3">
@@ -138,47 +137,44 @@ function LoadMoreTrigger({
   return <div ref={ref} className="h-px" />;
 }
 
-function GamesList({
+function GameListTab({
+  statusFilter,
   onSelectGame,
   userBetGameIds,
 }: {
+  statusFilter: "active" | "ended";
   onSelectGame: (game: GameWithAgents) => void;
-  userBetGameIds: Set<string>;
+  userBetGameIds: Set<number>;
 }) {
   const { games, hasMore, isLoading, isLoadingMore, error, loadMore } =
-    useGames();
+    useGames(statusFilter);
 
   if (isLoading && !games.length) {
     return (
-      <div className="flex flex-col">
-        <div className="border-b border-border bg-secondary px-4 py-2.5">
-          <span className="text-label text-muted-foreground">SELECT MATCH</span>
-        </div>
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-        </div>
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="size-4 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (error && !games.length) {
     return (
-      <div className="flex flex-col">
-        <div className="border-b border-border bg-secondary px-4 py-2.5">
-          <span className="text-label text-muted-foreground">SELECT MATCH</span>
-        </div>
-        <div className="flex items-center justify-center py-16">
-          <p className="text-label text-muted-foreground">[ ERROR LOADING ]</p>
-        </div>
+      <div className="flex items-center justify-center py-16">
+        <p className="text-label text-muted-foreground">[ ERROR LOADING ]</p>
+      </div>
+    );
+  }
+
+  if (!games.length) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-label text-muted-foreground">[ NO MATCHES ]</p>
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="border-b border-border bg-secondary px-4 py-2.5">
-        <span className="text-label text-muted-foreground">SELECT MATCH</span>
-      </div>
       {games.map((game) => (
         <GameRow
           key={game.id}
@@ -208,6 +204,47 @@ function GamesList({
   );
 }
 
+function GamesList({
+  onSelectGame,
+  userBetGameIds,
+}: {
+  onSelectGame: (game: GameWithAgents) => void;
+  userBetGameIds: Set<number>;
+}) {
+  return (
+    <Tabs defaultValue="active" className="flex h-full flex-col overflow-hidden">
+      <TabsList className="h-10 w-full rounded-none border-b border-border bg-secondary p-0">
+        <TabsTrigger
+          value="active"
+          className="text-label h-full flex-1 rounded-none text-muted-foreground hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+        >
+          LIVE / UPCOMING
+        </TabsTrigger>
+        <TabsTrigger
+          value="ended"
+          className="text-label h-full flex-1 rounded-none text-muted-foreground hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+        >
+          ENDED
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="active" className="flex-1 overflow-hidden">
+        <GameListTab
+          statusFilter="active"
+          onSelectGame={onSelectGame}
+          userBetGameIds={userBetGameIds}
+        />
+      </TabsContent>
+      <TabsContent value="ended" className="flex-1 overflow-hidden">
+        <GameListTab
+          statusFilter="ended"
+          onSelectGame={onSelectGame}
+          userBetGameIds={userBetGameIds}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
 function AgentCard({
   agent,
   isSelected,
@@ -230,11 +267,10 @@ function AgentCard({
       type="button"
       disabled={!canBet}
       onClick={onSelect}
-      className={`transition-percussive w-full px-3 py-3 text-left ${
-        active
-          ? "border border-border bg-secondary"
-          : "border border-transparent hover:bg-secondary/50"
-      } ${!canBet ? "cursor-default opacity-60" : ""}`}
+      className={`transition-percussive w-full px-3 py-3 text-left ${active
+        ? "border border-border bg-secondary"
+        : "border border-transparent hover:bg-secondary/50"
+        } ${!canBet ? "cursor-default opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -306,32 +342,42 @@ function BetInputInline({
 function GameDetail({
   game: initialGame,
   onBack,
-  initialBet,
   onBetPlaced,
 }: {
   game: GameWithAgents;
   onBack: () => void;
-  initialBet: Bet | null;
   onBetPlaced: () => void;
 }) {
-  const { game, userBet, isLoading, mutate } = useGameDetail(initialGame.id);
+  const { game, userBets, isLoading } = useGameDetail(initialGame.id);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [betAmount, setBetAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { publicKey, sendTransaction, connected } = useWallet();
 
-  const displayGame = game || initialGame;
-  const displayBet = userBet || initialBet;
+  const liveMetadata = useAtomValue(gameMetadataAtom);
+  const snapshot = useAtomValue(gameSnapshotAtom);
 
-  const canBet =
-    (displayGame.status === "OPEN" || displayGame.status === "UPCOMING") &&
-    !displayBet;
+  const isLiveGame = liveMetadata?.id === initialGame.id && liveMetadata.status === "LIVE";
+  const displayPool = isLiveGame ? liveMetadata.pool : (game || initialGame).totalPool;
+  const displayGame = game || initialGame;
+
+  const agentAliveMap = new Map<string, boolean>();
+  if (snapshot?.gameId === initialGame.id) {
+    for (const agent of snapshot.agents) {
+      agentAliveMap.set(agent.id, agent.alive);
+    }
+  }
+
+  const canBet = isLiveGame || displayGame.status === "LIVE";
+  const displayStatus = isLiveGame ? liveMetadata.status : displayGame.status;
+  const hasBetOnAgent = (agentId: string) => userBets.some((b) => b.agentId === agentId);
   const selectedAgentData = displayGame?.agents.find(
     (a) => a.id === selectedAgent
   );
 
   const handlePlaceBet = async () => {
     if (!selectedAgent || !selectedAgentData) return;
+
     if (!publicKey || !connected) {
       toast.error("Wallet not connected", {
         description: "Connect your wallet to place a bet",
@@ -355,18 +401,14 @@ function GameDetail({
       const userATA = getAssociatedTokenAddressSync(usdcMint, publicKey);
       const escrowATA = new PublicKey(initData.escrowUSDCAddress);
 
-      const rpcUrl =
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
-        "https://api.devnet.solana.com";
       const connection = new Connection(rpcUrl);
-
-      const tx = new Transaction();
 
       const [userATAInfo, escrowATAInfo] = await Promise.all([
         connection.getAccountInfo(userATA),
         connection.getAccountInfo(escrowATA),
       ]);
 
+      const tx = new Transaction();
       if (!userATAInfo) {
         tx.add(
           createAssociatedTokenAccountInstruction(
@@ -400,20 +442,12 @@ function GameDetail({
         )
       );
 
-      // send 0.001 SOL to escrow for future transaction fees
-      tx.add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: escrowPubkey,
-          lamports: 1_000_000,
-        })
-      );
-
-      const { blockhash } = await connection.getLatestBlockhash("confirmed");
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
       tx.recentBlockhash = blockhash;
       tx.feePayer = publicKey;
 
       const txHash = await sendTransaction(tx, connection);
+      await connection.confirmTransaction({ signature: txHash, blockhash, lastValidBlockHeight });
 
       await confirmBet(
         displayGame.id,
@@ -430,7 +464,6 @@ function GameDetail({
       setSelectedAgent(null);
       setBetAmount("");
       onBetPlaced();
-      mutate();
     } catch (err) {
       toast.error("Bet failed", {
         description: err instanceof Error ? err.message : "Could not place bet",
@@ -450,7 +483,7 @@ function GameDetail({
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full flex-col overflow-y-auto">
       <div className="border-b border-border px-4 py-3">
         <button
           type="button"
@@ -467,9 +500,9 @@ function GameDetail({
               {displayGame.name}
             </h2>
             <div className="mt-1.5 flex items-center gap-3">
-              <StatusBadge status={displayGame.status} />
+              <StatusBadge status={displayStatus} />
               <span className="text-label text-muted-foreground">
-                R{displayGame.id.slice(0, 6).toUpperCase()}
+                R{displayGame.id}
               </span>
             </div>
           </div>
@@ -481,36 +514,36 @@ function GameDetail({
           PRIZE POOL
         </span>
         <span className="text-display-lg text-data text-foreground">
-          {displayGame.totalPool.toFixed(1)}
+          {displayPool.toFixed(1)}
           <span className="text-label ml-2 text-muted-foreground">USDC</span>
         </span>
       </div>
 
-      {displayGame.status === "LIVE" && (
+      {displayStatus === "LIVE" && !userBets.length && (
         <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-          <Lock className="size-3 text-muted-foreground" />
-          <span className="text-label text-muted-foreground">
-            BETTING LOCKED — MATCH IN PROGRESS
+          <Target className="size-3 text-destructive" />
+          <span className="text-label text-destructive">
+            BETTING OPEN — MATCH IN PROGRESS
           </span>
         </div>
       )}
 
-      {displayBet && (
-        <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
+      {userBets.map((bet) => (
+        <div key={bet.id} className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-success" />
             <span className="text-label text-foreground">
-              {displayBet.amount.toFixed(2)} USDC ON{" "}
-              {displayBet.agentId.toUpperCase()}
+              {bet.amount.toFixed(2)} USDC ON{" "}
+              {bet.agentId.toUpperCase()}
             </span>
           </div>
           <span className="text-label text-muted-foreground">
-            [{displayBet.status}]
+            [{bet.status}]
           </span>
         </div>
-      )}
+      ))}
 
-      {displayGame.status === "ENDED" && displayGame.winnerAgentId && (
+      {displayStatus === "ENDED" && displayGame.winnerAgentId && (
         <div className="border-b border-border bg-foreground px-4 py-2.5 text-background">
           <span className="text-label">
             WINNER: {displayGame.winnerAgentId.toUpperCase()}
@@ -518,7 +551,7 @@ function GameDetail({
         </div>
       )}
 
-      {displayGame.status === "CANCELLED" && (
+      {displayStatus === "CANCELLED" && (
         <div className="border-b border-border px-4 py-2.5">
           <span className="text-label text-muted-foreground">
             MATCH CANCELLED — ALL BETS REFUNDED
@@ -546,35 +579,40 @@ function GameDetail({
         )}
 
         <div className="flex flex-col">
-          {displayGame?.agents.map((a) => (
-            <div key={a.id} className="border-b border-border last:border-b-0">
-              <AgentCard
-                agent={a}
-                isSelected={selectedAgent === a.id}
-                isBetAgent={displayBet?.agentId === a.id}
-                isWinner={displayGame.winnerAgentId === a.id}
-                canBet={canBet}
-                onSelect={() => {
-                  if (!canBet) return;
-                  if (selectedAgent === a.id) {
-                    setSelectedAgent(null);
-                    setBetAmount("");
-                  } else {
-                    setSelectedAgent(a.id);
-                    setBetAmount("");
-                  }
-                }}
-              />
-              {canBet && selectedAgent === a.id && (
-                <BetInputInline
-                  value={betAmount}
-                  onChange={setBetAmount}
-                  onSubmit={handlePlaceBet}
-                  submitting={submitting}
+          {displayGame?.agents.map((a) => {
+            const alreadyBet = hasBetOnAgent(a.id);
+            const isAlive = agentAliveMap.get(a.id) ?? true;
+            const agentCanBet = canBet && !alreadyBet && isAlive;
+            return (
+              <div key={a.id} className="border-b border-border last:border-b-0">
+                <AgentCard
+                  agent={a}
+                  isSelected={selectedAgent === a.id}
+                  isBetAgent={alreadyBet}
+                  isWinner={displayGame.winnerAgentId === a.id}
+                  canBet={agentCanBet}
+                  onSelect={() => {
+                    if (!agentCanBet) return;
+                    if (selectedAgent === a.id) {
+                      setSelectedAgent(null);
+                      setBetAmount("");
+                    } else {
+                      setSelectedAgent(a.id);
+                      setBetAmount("");
+                    }
+                  }}
                 />
-              )}
-            </div>
-          ))}
+                {agentCanBet && selectedAgent === a.id && (
+                  <BetInputInline
+                    value={betAmount}
+                    onChange={setBetAmount}
+                    onSubmit={handlePlaceBet}
+                    submitting={submitting}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -647,7 +685,7 @@ function MyBetsView() {
                 {bet.agent.name?.toUpperCase() || bet.agentId.toUpperCase()}
               </span>
               <span className="text-label text-muted-foreground">
-                R{bet.gameId.slice(0, 6).toUpperCase()}
+                R{bet.gameId}
               </span>
             </div>
             <div className="flex flex-col items-end gap-0.5">
@@ -661,15 +699,14 @@ function MyBetsView() {
                   </span>
                 )}
                 <span
-                  className={`text-label ${
-                    bet.status === "WON"
-                      ? "text-success"
-                      : bet.status === "LOST"
-                        ? "text-muted-foreground"
-                        : bet.status === "REFUNDED"
-                          ? "text-warning"
-                          : "text-foreground"
-                  }`}
+                  className={`text-label ${bet.status === "WON"
+                    ? "text-success"
+                    : bet.status === "LOST"
+                      ? "text-muted-foreground"
+                      : bet.status === "REFUNDED"
+                        ? "text-warning"
+                        : "text-foreground"
+                    }`}
                 >
                   [{bet.status}]
                 </span>
@@ -718,7 +755,7 @@ function MyBetsView() {
 
 export function LeftSidebarContent({ tab }: { tab: "games" | "bets" }) {
   const [selectedGame, setSelectedGame] = useState<GameWithAgents | null>(null);
-  const [userBetGameIds, setUserBetGameIds] = useState<Set<string>>(new Set());
+  const [userBetGameIds, setUserBetGameIds] = useState<Set<number>>(new Set());
 
   const handleBetPlaced = useCallback(() => {
     if (selectedGame) {
@@ -731,7 +768,6 @@ export function LeftSidebarContent({ tab }: { tab: "games" | "bets" }) {
       <GameDetail
         game={selectedGame}
         onBack={() => setSelectedGame(null)}
-        initialBet={null}
         onBetPlaced={handleBetPlaced}
       />
     ) : (

@@ -122,15 +122,6 @@ export function GameOverlay() {
                   <span className="text-caption text-foreground uppercase">
                     {currentAgent.name}
                   </span>
-                  {spectatingAgent && (
-                    <button
-                      type="button"
-                      onClick={() => setSpectatingAgent(null)}
-                      className="text-label ml-1 text-muted-foreground hover:text-foreground"
-                    >
-                      [RESET]
-                    </button>
-                  )}
                 </>
               ) : (
                 <span className="text-caption text-foreground uppercase">
@@ -185,9 +176,7 @@ export function GameOverlay() {
               className={`text-label uppercase ${
                 gameMetadata.status === "LIVE"
                   ? "text-destructive"
-                  : gameMetadata.status === "OPEN"
-                    ? "text-success"
-                    : "text-muted-foreground"
+                  : "text-muted-foreground"
               }`}
             >
               {gameMetadata.status}

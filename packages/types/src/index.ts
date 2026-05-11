@@ -33,7 +33,7 @@ export type World = {
 export type GameAgentMetadata = Pick<Agent, "id" | "name" | "color" | "accent">;
 
 export type GameSnapshot = {
-  gameId: string;
+  gameId: number;
   gameName: string;
   world: World;
   durationMs: number;
@@ -46,19 +46,17 @@ export type GameSnapshot = {
 };
 
 export type GameMetadata = {
-  id: string;
+  id: number;
   name: string;
   pool: number;
   status: GameStatus;
-  bettingOpensAt?: string;
-  bettingClosesAt?: string;
-  matchStartsAt?: string;
+  remainingSeconds?: number;
   startedAt?: string;
   agents: GameAgentMetadata[];
 };
 
 export type MatchResult = {
-  gameId: string;
+  gameId: number;
   winnerId: string | null;
   winnerName: string | null;
 };

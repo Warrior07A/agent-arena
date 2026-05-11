@@ -3,11 +3,16 @@ import { prisma } from "@repo/db";
 import { resolveGameEscrow } from "@/lib/escrow";
 import { PublicKey } from "@solana/web3.js";
 
+const FEE_BPS = parseInt(
+  process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS ?? "100",
+  10
+);
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { gameId, agentRanks } = body as {
-      gameId: string;
+      gameId: number;
       agentRanks: Array<{ agentId: string; rank: number | null }>;
     };
 
@@ -30,13 +35,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Game has not ended" },
         { status: 400 }
-      );
-    }
-
-    if (!game.escrowEncryptedKey || !game.escrowPublicKey) {
-      return NextResponse.json(
-        { error: "Escrow not initialized" },
-        { status: 500 }
       );
     }
 
@@ -81,23 +79,25 @@ export async function POST(req: NextRequest) {
     const losingBets = bets.filter((b) => !winningAgentIds.has(b.agentId));
 
     const totalWinningPool = winningBets.reduce(
-      (sum, b) => sum + b.amount,
+      (sum, b) => sum + Number(b.amount),
       0
     );
     const totalPool = bets.reduce(
-      (sum, b) => sum + b.amount,
+      (sum, b) => sum + Number(b.amount),
       0
     );
 
-    const payoutPool = totalPool; // no fee for now
+    const feeAmount = Math.floor((totalPool * FEE_BPS) / 10_000); // 1_000_000 is 100% in bips
+    const payoutPool = totalPool - feeAmount;
 
     const winningEntrants = winningBets
       .map((bet) => ({
         walletAddress: bet.walletAddress,
-        betAmount: bet.amount,
-        payoutAmount: Math.floor(
-          (bet.amount / totalWinningPool) * payoutPool
-        ),
+        betAmount: Number(bet.amount),
+        payoutAmount:
+          totalWinningPool > 0
+            ? Math.floor((Number(bet.amount) / totalWinningPool) * payoutPool)
+            : 0,
       }))
       .filter((w) => {
         try {
@@ -109,13 +109,15 @@ export async function POST(req: NextRequest) {
       });
 
     let txIds: string[] = [];
+    let actualFee = 0;
 
     try {
       const result = await resolveGameEscrow({
-        escrowSecretKey: game.escrowEncryptedKey,
         winners: winningEntrants,
+        totalPool,
       });
       txIds = result.txIds;
+      actualFee = result.totalFee;
     } catch (err) {
       console.error("[resolve] escrow payout failed", err);
     }
@@ -135,20 +137,18 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      if (payout > 0) {
-        try {
-          await prisma.user.update({
-            where: { id: bet.userId },
-            data: {
-              totalBetsWon: { increment: 1 },
-              totalPayout: { increment: payout },
-              netEarnings: {
-                increment: payout - bet.amount,
-              },
+      try {
+        await prisma.user.update({
+          where: { id: bet.userId },
+          data: {
+            totalBetsWon: { increment: 1 },
+            totalPayout: { increment: BigInt(payout) },
+            netEarnings: {
+              increment: BigInt(payout - Number(bet.amount)),
             },
-          });
-        } catch {}
-      }
+          },
+        });
+      } catch {}
     }
 
     for (const bet of losingBets) {
@@ -165,12 +165,18 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
+    await prisma.game.update({
+      where: { id: gameId },
+      data: { feeAmount: actualFee },
+    });
+
     return NextResponse.json({
       resolved: true,
       winningAgentIds: Array.from(winningAgentIds),
       winningBets: winningBets.length,
       losingBets: losingBets.length,
       totalPayout: payoutPool,
+      platformFee: actualFee,
       payoutTxIds: txIds,
     });
   } catch (error) {

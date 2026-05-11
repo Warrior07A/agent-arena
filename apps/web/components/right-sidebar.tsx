@@ -167,7 +167,7 @@ export function RightSidebarContent() {
                 </span>
               )}
               <span className="text-label text-muted-foreground">
-                R{gameMetadata.id.slice(0, 6).toUpperCase()}
+                R{gameMetadata.id}
               </span>
             </div>
           </div>

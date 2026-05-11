@@ -63,9 +63,11 @@ export function LoginForm() {
             toast.error(ctx.error.message);
             setLoading(false);
           },
+          onSuccess({ response, data }) {
+            toast.info(response.statusText);
+          },
         },
       });
-      toast.success("Account created successfully");
     } catch (error) {
       console.error(error);
       setLoading(false);

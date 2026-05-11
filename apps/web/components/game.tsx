@@ -47,10 +47,7 @@ export function Game() {
       const rect = canvas.getBoundingClientRect();
       const width = Math.max(1, Math.floor(rect.width));
       const height = Math.max(1, Math.floor(rect.height));
-      const ratio = Math.min(
-        window.devicePixelRatio || 1,
-        MAX_DEVICE_PIXEL_RATIO
-      );
+      const ratio = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
       viewport = { width, height, ratio };
 
       const targetW = Math.floor(width * ratio);
@@ -68,12 +65,10 @@ export function Game() {
 
     const renderGame = (snapshot: GameSnapshot) => {
       const camera = pickCameraTarget(snapshot, spectatorRef.current);
-
       if (camera.followingId !== spectatorRef.current) {
         spectatorRef.current = camera.followingId;
         setSpectatingAgent(camera.followingId);
       }
-
       advanceCamera(camera, viewport, snapshot.world);
       drawFrame(ctx, viewport, snapshot, camera);
     };
@@ -94,49 +89,31 @@ export function Game() {
           case "snapshot":
             setGameSnapshot(message.data);
             cancelRender();
-            animationFrame = window.requestAnimationFrame(() =>
-              renderGame(message.data)
-            );
+            animationFrame = window.requestAnimationFrame(() => renderGame(message.data));
             break;
 
           case "status":
             setMatchWinner(null);
             setGameMetadata(message.data);
-
             if (message.data.status === "LIVE") {
               setMatchStartCountdown(null);
-
-              if (audioRef.current) {
-                if (audioRef.current.paused) {
-                  audioRef.current.currentTime = 0;
-                  audioRef.current.play().catch(() => {});
-                }
+              if (audioRef.current?.paused) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().catch(() => {});
               }
             } else {
               setGameSnapshot(null);
-              setMatchStartCountdown(
-                message.data.matchStartsAt
-                  ? Math.floor(
-                      (new Date(message.data.matchStartsAt).getTime() -
-                        Date.now()) /
-                        1000
-                    )
-                  : null
-              );
               ctx.reset();
-              if (audioRef.current) {
-                audioRef.current.pause();
-              }
+              audioRef.current?.pause();
+              setMatchStartCountdown(message.data.remainingSeconds ?? null);
             }
             break;
 
           case "winner":
-            setMatchStartCountdown(null);
             setMatchWinner(message.data);
-
-            if (audioRef.current) {
-              audioRef.current.pause();
-            }
+            setGameSnapshot(null);
+            ctx.reset();
+            audioRef.current?.pause();
             break;
         }
       } catch {

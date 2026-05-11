@@ -4,7 +4,8 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import {
   verifyUSDCDeposit,
-  getEscrowUSDCAddress,
+  getSharedEscrowUSDCAddress,
+  getSharedEscrowPublicKey,
 } from "@/lib/escrow";
 
 const PAGE_SIZE = 20;
@@ -41,8 +42,13 @@ export async function GET(request: NextRequest) {
 
   const normalizedBets = bets.map((bet) => ({
     ...bet,
-    amount: bet.amount / 1e6,
-    payout: bet.payout ? bet.payout / 1e6 : null,
+    amount: Number(bet.amount) / 1e6,
+    payout: bet.payout ? Number(bet.payout) / 1e6 : null,
+    game: {
+      ...bet.game,
+      totalPool: Number(bet.game.totalPool) / 1e6,
+      feeAmount: bet.game.feeAmount ? Number(bet.game.feeAmount) / 1e6 : null,
+    }
   }));
 
   return NextResponse.json({
@@ -65,10 +71,7 @@ export async function POST(request: NextRequest) {
 
   if (!gameId || !agentId || !amount) {
     return NextResponse.json(
-      {
-        error:
-          "Missing required fields: gameId, agentId, amount",
-      },
+      { error: "Missing required fields: gameId, agentId, amount" },
       { status: 400 }
     );
   }
@@ -82,15 +85,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
   }
 
-  if (game.status !== "OPEN" || !game.bettingClosesAt || new Date(game.bettingClosesAt) <= new Date()) {
+  if (game.status !== "LIVE") {
     return NextResponse.json(
-      { error: "Betting is not open for this game" },
+      { error: "Betting is only open during live matches" },
       { status: 400 }
     );
   }
 
   const existingBet = await prisma.bet.findFirst({
-    where: { gameId, userId: session.user.id, agentId, },
+    where: { gameId, userId: session.user.id, agentId },
   });
 
   if (existingBet) {
@@ -100,21 +103,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!game.escrowPublicKey) {
-    return NextResponse.json(
-      { error: "Escrow not initialized for this game" },
-      { status: 500 }
-    );
-  }
-
-  const escrowUSDC = await getEscrowUSDCAddress(game.escrowPublicKey);
+  const escrowPublicKey = getSharedEscrowPublicKey();
+  const escrowUSDCAddress = await getSharedEscrowUSDCAddress();
   const usdcBase = Math.round(amount * 1e6);
 
   return NextResponse.json({
-    escrowPublicKey: game.escrowPublicKey,
-    escrowUSDCAddress: escrowUSDC,
+    escrowPublicKey,
+    escrowUSDCAddress,
     usdcAmount: usdcBase,
-    gameId,
   });
 }
 
@@ -128,26 +124,22 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { gameId, agentId, amount, walletAddress, txHash } =
-    body;
+  const { gameId, agentId, amount, walletAddress, txHash } = body;
 
   if (!gameId || !agentId || !amount || !walletAddress || !txHash) {
     return NextResponse.json(
-      {
-        error:
-          "Missing required fields: gameId, agentId, amount, walletAddress, txHash",
-      },
+      { error: "Missing required fields: gameId, agentId, amount, walletAddress, txHash" },
       { status: 400 }
     );
   }
 
   const existingBet = await prisma.bet.findFirst({
-    where: { gameId, userId: session.user.id },
+    where: { gameId, userId: session.user.id, agentId },
   });
 
   if (existingBet) {
     return NextResponse.json(
-      { error: "Already placed a bet on this game" },
+      { error: "Already placed a bet on this agent" },
       { status: 409 }
     );
   }
@@ -160,28 +152,23 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
   }
 
-  if (!game.escrowPublicKey) {
-    return NextResponse.json(
-      { error: "Escrow not initialized for this game" },
-      { status: 500 }
-    );
+  const amountBase = Math.round(amount * 1e6);
+
+  const verify = async (retry: number = 0) => {
+    if (retry === 5) {
+      return false;
+    }
+    const done = await verifyUSDCDeposit(txHash, amountBase);
+    if (done) {
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+    return await verify(retry + 1);
   }
 
-  const amountBase = Math.round(amount * 1e6);
-  const escrowUSDC = await getEscrowUSDCAddress(game.escrowPublicKey);
-
-  const depositVerified = await verifyUSDCDeposit(
-    txHash,
-    escrowUSDC,
-    amountBase
-  );
-
-  if (!depositVerified) {
+  if (!(await verify())) {
     return NextResponse.json(
-      {
-        error:
-          "Could not verify deposit to escrow. Ensure the transaction is confirmed.",
-      },
+      { error: "Could not verify deposit to escrow. Ensure the transaction is confirmed." },
       { status: 400 }
     );
   }
@@ -198,18 +185,25 @@ export async function PATCH(request: NextRequest) {
     },
   });
 
-  await prisma.game.update({
+  const updatedGame = await prisma.game.update({
     where: { id: gameId },
     data: {
       totalPool: { increment: amountBase },
     },
+    select: {
+      id: true,
+      totalPool: true,
+    }
   });
+
+  const agentUrl = process.env.AGENT_SERVER_URL ?? "http://localhost:3001";
+  fetch(`${agentUrl}/bet-confirmed`).catch((err) => console.warn("[bets] failed to notify agent", err));
 
   return NextResponse.json({
     bet: {
       ...bet,
-      amount: bet.amount / 1e6,
-      payout: bet.payout ? bet.payout / 1e6 : null,
+      amount: Number(bet.amount) / 1e6,
+      payout: bet.payout ? Number(bet.payout) / 1e6 : null,
     },
   });
 }

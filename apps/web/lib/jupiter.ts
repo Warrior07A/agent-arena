@@ -2,7 +2,9 @@ const JUPITER_API = "https://api.jup.ag/swap/v1";
 const JUPITER_API_KEY = process.env.JUPITER_API_KEY ?? "";
 
 // Devnet USDC (Circle's devnet USDC)
-export const USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+export const USDC_MINT =
+  process.env.NEXT_PUBLIC_USDC_MINT ??
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 export const SOL_MINT = "So11111111111111111111111111111111111111112";
 
 export interface SwapQuote {

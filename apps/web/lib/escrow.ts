@@ -1,4 +1,5 @@
 import { Keypair, PublicKey, Connection, Transaction } from "@solana/web3.js";
+import bs58 from "bs58";
 import {
   getOrCreateAssociatedTokenAccount,
   createTransferInstruction,
@@ -14,39 +15,42 @@ const RPC_URL =
 
 const connection = new Connection(RPC_URL, "confirmed");
 
-const PLATFORM_KEYPAIR = process.env.SOLANA_PRIVATE_KEY
-  ? Keypair.fromSecretKey(
-      Uint8Array.from(JSON.parse(process.env.SOLANA_PRIVATE_KEY))
-    )
-  : null;
+const FEE_BPS = parseInt(
+  process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS ?? "100",
+  10
+);
 
-export interface EscrowWallet {
-  publicKey: string;
-  secretKey: string;
+function parseKey(envValue: string): Keypair {
+  if (envValue.startsWith("[")) {
+    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(envValue)));
+  }
+  return Keypair.fromSecretKey(bs58.decode(envValue));
 }
 
-export function generateEscrowKeypair(): EscrowWallet {
-  const keypair = Keypair.generate();
-  return {
-    publicKey: keypair.publicKey.toBase58(),
-    secretKey: JSON.stringify(Array.from(keypair.secretKey)),
-  };
+function getSharedEscrowKeypair(): Keypair | null {
+  const key = process.env.SHARED_ESCROW_PRIVATE_KEY;
+  if (!key) return null;
+  return parseKey(key);
 }
 
-export function restoreEscrowKeypair(secretKeyJson: string): Keypair {
-  const secretKey = Uint8Array.from(JSON.parse(secretKeyJson));
-  return Keypair.fromSecretKey(secretKey);
+function getPlatformKeypair(): Keypair | null {
+  const key = process.env.PLATFORM_PRIVATE_KEY;
+  if (!key) return null;
+  return parseKey(key);
 }
 
-export async function getEscrowUSDCAddress(
-  escrowPublicKey: string
-): Promise<string> {
-  const escrowPubkey = new PublicKey(escrowPublicKey);
+export async function getSharedEscrowUSDCAddress(): Promise<string> {
+  const escrow = getSharedEscrowKeypair();
+  if (!escrow) return "";
   const ata = await getAssociatedTokenAddress(
     new PublicKey(USDC_MINT),
-    escrowPubkey
+    escrow.publicKey
   );
   return ata.toBase58();
+}
+
+export function getSharedEscrowPublicKey(): string {
+  return getSharedEscrowKeypair()?.publicKey.toBase58() ?? "";
 }
 
 export interface WinnerPayout {
@@ -56,13 +60,18 @@ export interface WinnerPayout {
 }
 
 export async function resolveGameEscrow(params: {
-  escrowSecretKey: string;
   winners: WinnerPayout[];
-}): Promise<{ txIds: string[] }> {
-  const { escrowSecretKey, winners } = params;
+  totalPool: number;
+}): Promise<{ txIds: string[]; totalFee: number }> {
+  const { winners, totalPool } = params;
 
-  const escrowKeypair = restoreEscrowKeypair(escrowSecretKey);
-  const feePayer = PLATFORM_KEYPAIR ?? escrowKeypair;
+  const escrowKeypair = getSharedEscrowKeypair();
+  if (!escrowKeypair) {
+    return { txIds: [], totalFee: 0 };
+  }
+
+  const platformKeypair = getPlatformKeypair();
+  const feePayer = platformKeypair ?? escrowKeypair;
 
   const escrowUSDC = await getAssociatedTokenAddress(
     new PublicKey(USDC_MINT),
@@ -77,20 +86,68 @@ export async function resolveGameEscrow(params: {
     balance.value.uiAmount === 0 ||
     balance.value.uiAmount === null
   ) {
-    console.warn(
-      "[escrow] escrow has no USDC balance, skipping on-chain transfers",
-      {
-        escrow: escrowKeypair.publicKey.toBase58(),
-        escrowUSDC: escrowUSDC.toBase58(),
-      }
-    );
-    return { txIds: [] };
+    console.warn("[escrow] no USDC balance, skipping on-chain transfers");
+    return { txIds: [], totalFee: 0 };
   }
+
+  const feeAmount = Math.floor((totalPool * FEE_BPS) / 10000);
+  const afterFee = totalPool - feeAmount;
 
   const txIds: string[] = [];
 
+  // send platform fee
+  if (feeAmount > 0 && platformKeypair) {
+    try {
+      const platformUSDC = await getOrCreateAssociatedTokenAccount(
+        connection,
+        feePayer,
+        new PublicKey(USDC_MINT),
+        platformKeypair.publicKey
+      );
+
+      const feeTx = new Transaction().add(
+        createTransferInstruction(
+          escrowUSDC,
+          platformUSDC.address,
+          escrowKeypair.publicKey,
+          feeAmount,
+          [],
+          TOKEN_PROGRAM_ID
+        )
+      );
+
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
+      feeTx.recentBlockhash = blockhash;
+      feeTx.feePayer = feePayer.publicKey;
+
+      const signers = [escrowKeypair];
+      if (feePayer !== escrowKeypair) signers.push(feePayer);
+      feeTx.sign(...signers);
+
+      const txid = await connection.sendRawTransaction(feeTx.serialize(), {
+        maxRetries: 3,
+      });
+      await connection.confirmTransaction({
+        signature: txid,
+        blockhash,
+        lastValidBlockHeight,
+      });
+      txIds.push(txid);
+    } catch (err) {
+      console.warn("[escrow] failed to send platform fee", (err as Error).message);
+    }
+  }
+
+  // pay winners proportionally from after-fee pool
+  const totalWinningBetAmount = winners.reduce((s, w) => s + w.betAmount, 0);
+
   for (const winner of winners) {
     try {
+      const winnerShare = totalWinningBetAmount > 0
+        ? Math.ceil((winner.betAmount * afterFee) / totalWinningBetAmount)
+        : 0;
+
       const winnerPubkey = new PublicKey(winner.walletAddress);
       const winnerUSDC = await getOrCreateAssociatedTokenAccount(
         connection,
@@ -104,7 +161,7 @@ export async function resolveGameEscrow(params: {
           escrowUSDC,
           winnerUSDC.address,
           escrowKeypair.publicKey,
-          winner.payoutAmount,
+          winnerShare,
           [],
           TOKEN_PROGRAM_ID
         )
@@ -136,12 +193,78 @@ export async function resolveGameEscrow(params: {
     }
   }
 
+  return { txIds, totalFee: Number(feeAmount) };
+}
+
+export interface RefundEntry {
+  walletAddress: string;
+  betAmount: number;
+}
+
+export async function cancelGameEscrow(refunds: RefundEntry[]): Promise<{ txIds: string[] }> {
+  const escrowKeypair = getSharedEscrowKeypair();
+  if (!escrowKeypair) return { txIds: [] };
+
+  const platformKeypair = getPlatformKeypair();
+  const feePayer = platformKeypair ?? escrowKeypair;
+
+  const escrowUSDC = await getAssociatedTokenAddress(
+    new PublicKey(USDC_MINT),
+    escrowKeypair.publicKey
+  );
+
+  const balance = await connection.getTokenAccountBalance(escrowUSDC).catch(() => null);
+  if (!balance || balance.value.uiAmount === 0 || balance.value.uiAmount === null) {
+    console.warn("[escrow] no USDC balance, skipping refunds");
+    return { txIds: [] };
+  }
+
+  const txIds: string[] = [];
+  for (const refund of refunds) {
+    try {
+      const amount = refund.betAmount;
+      if (amount <= 0) continue;
+
+      const refundPubkey = new PublicKey(refund.walletAddress);
+      const refundUSDC = await getOrCreateAssociatedTokenAccount(
+        connection,
+        feePayer,
+        new PublicKey(USDC_MINT),
+        refundPubkey
+      );
+
+      const tx = new Transaction().add(
+        createTransferInstruction(
+          escrowUSDC,
+          refundUSDC.address,
+          escrowKeypair.publicKey,
+          amount,
+          [],
+          TOKEN_PROGRAM_ID
+        )
+      );
+
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = feePayer.publicKey;
+
+      const signers = [escrowKeypair];
+      if (feePayer !== escrowKeypair) signers.push(feePayer);
+      tx.sign(...signers);
+
+      const txid = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 3 });
+      await connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight });
+      txIds.push(txid);
+    } catch (err) {
+      console.warn("[escrow] failed to refund", { address: refund.walletAddress, error: (err as Error).message });
+    }
+  }
+
   return { txIds };
 }
 
 export async function verifyUSDCDeposit(
   txHash: string,
-  expectedRecipient: string,
   expectedAmount: number
 ): Promise<boolean> {
   try {
@@ -152,6 +275,9 @@ export async function verifyUSDCDeposit(
     if (!tx || tx.meta?.err) {
       return false;
     }
+
+    const expectedRecipient = await getSharedEscrowUSDCAddress();
+    if (!expectedRecipient) return false;
 
     const recipientPubkey = new PublicKey(expectedRecipient);
 

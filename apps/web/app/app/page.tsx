@@ -33,7 +33,7 @@ async function getInitialGames() {
       },
     });
 
-    let nextCursor: string | null = null;
+    let nextCursor: number | null = null;
     if (games.length > 15) {
       const nextItem = games.pop();
       nextCursor = nextItem!.id;
@@ -43,7 +43,8 @@ async function getInitialGames() {
       games: games.map((game) => ({
         ...game,
         agents: game.agents.map((ag) => ag.agent),
-        totalPool: game.totalPool / 1e6,
+        totalPool: Number(game.totalPool) / 1e6,
+        feeAmount: game.feeAmount ? Number(game.feeAmount) / 1e6 : null,
       })),
       nextCursor,
     };

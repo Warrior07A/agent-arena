@@ -1,31 +1,39 @@
 import type { Game, Agent, Bet } from "@repo/db";
 
-export type GameWithAgents = Game & { agents: Agent[] };
+type NormalizedGame = Omit<Game, "totalPool" | "feeAmount"> & {
+  totalPool: number;
+  feeAmount: number | null;
+};
+export type GameWithAgents = NormalizedGame & { agents: Agent[] };
 
 export type GamesResponse = {
   games: GameWithAgents[];
-  nextCursor: string | null;
+  nextCursor: number | null;
 };
 
 export type GameDetailResponse = {
   game: GameWithAgents;
-  userBet: Bet | null;
+  userBets: NormalizedBet[];
+};
+
+type NormalizedBet = Omit<Bet, "amount" | "payout"> & {
+  amount: number;
+  payout: number | null;
 };
 
 export type BetsResponse = {
-  bets: (Bet & { game: Game; agent: Agent })[];
+  bets: (NormalizedBet & { game: Game; agent: Agent })[];
   nextCursor: string | null;
 };
 
 export type BetPlacementResponse = {
-  bet: Bet;
+  bet: NormalizedBet;
 };
 
 export type BetInitResponse = {
   escrowPublicKey: string;
   escrowUSDCAddress: string;
   usdcAmount: number;
-  gameId: string;
 };
 
 export type LeaderboardEntry = {

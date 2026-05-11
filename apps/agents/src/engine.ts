@@ -126,7 +126,7 @@ function nextSectionIndex(
 }
 
 export type GameConfig = {
-  id: string;
+  id: number;
   name: string;
   pool: number;
   durationMs: number;
@@ -135,9 +135,9 @@ export type GameConfig = {
 };
 
 export class GameEngine {
-  public readonly id: string;
+  public readonly id: number;
   public readonly name: string;
-  public readonly pool: number;
+  public pool: number;
 
   private matchDuration: number;
   private remainingMs: number;
